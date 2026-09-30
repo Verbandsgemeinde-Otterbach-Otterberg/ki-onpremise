@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Gibt ein anderes Chat-Modell frei, entlädt die übrigen und wärmt das neue vor.
+# Aufruf: sudo llm-model-switch <modell>
+set -Eeuo pipefail
+CONF=${LLM_STACK_CONF:-/etc/llm-stack/llm-stack.env}
+set -a
+# shellcheck disable=SC1090
+. "$CONF"
+set +a
+ACTIVE=/opt/llm/active_model
+
+if [ $# -ne 1 ]; then
+  echo "Aufruf: sudo $(basename "$0") <modell>"
+  echo "Aktuell freigegeben: $(cat "$ACTIVE" 2>/dev/null || echo –)"
+  echo "Installiert:"; ollama list | awk 'NR>1 {print "  " $1}'
+  exit 1
+fi
+[ "$(id -u)" -eq 0 ] || { echo "Bitte mit sudo ausführen." >&2; exit 1; }
+
+model=$1
+ollama show "$model" >/dev/null 2>&1 || ollama pull "$model"
+
+# Andere Chat-Modelle aus dem Grafikspeicher entfernen (Embedding-Modell bleibt)
+while read -r loaded; do
+  case "$loaded" in
+    "$model"|"$model:latest"|"$EMBED_MODEL"|"$EMBED_MODEL:latest") ;;
+    *) ollama stop "$loaded" && echo "entladen: $loaded" ;;
+  esac
+done < <(ollama ps | awk 'NR>1 {print $1}')
+
+# Freigabe umschalten; der Proxy liest die Datei bei jeder Anfrage neu
+echo "$model" > "$ACTIVE.tmp" && mv "$ACTIVE.tmp" "$ACTIVE"
+
+# Vorwärmen: Modell laden, ohne Text zu erzeugen
+jq -n --arg m "$model" --arg k "$KEEP_ALIVE" '{model:$m, prompt:"", keep_alive:$k}' \
+  | curl -fsS http://127.0.0.1:11434/api/generate -d @- >/dev/null
+echo "freigegeben: $model"
+ollama ps

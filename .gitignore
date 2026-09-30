@@ -1,0 +1,32 @@
+# Geheimnisse und Serverzustand – niemals committen
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.pem
+*.key
+**/secrets/
+
+# Rohausgaben der Server-Inventur (nur geprüfte Auszüge gehören ins Repo)
+bericht_inventur.md
+bericht_lasttest.md
+*_history
+
+# Rohdaten der Evaluation werden nicht veröffentlicht
+evaluation/**/rohdaten/
+*.csv
+
+# Erzeugte Dateien (werden als Release angehängt)
+build/
+*.docx
+!tools/docx/reference.docx
+*.pdf
+
+# System
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc

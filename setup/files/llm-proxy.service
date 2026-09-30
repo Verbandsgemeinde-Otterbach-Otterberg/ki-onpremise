@@ -1,0 +1,19 @@
+[Unit]
+Description=LLM-Auth-Proxy vor Ollama (Token, Modellfreigabe, Schreibschutz)
+After=network-online.target docker.service ollama.service
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+EnvironmentFile=/etc/llm-stack/llm-stack.env
+ExecStart=/usr/bin/python3 /opt/llm/llm-proxy.py
+Restart=on-failure
+RestartSec=5
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

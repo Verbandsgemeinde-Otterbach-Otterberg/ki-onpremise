@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# (Neu-)Start des Open-WebUI-Containers mit der Konfiguration aus /etc/llm-stack/llm-stack.env.
+# Daten (Konten, Chats, Wissenssammlungen, Vektordatenbank) liegen im Volume open-webui.
+set -Eeuo pipefail
+CONF=${LLM_STACK_CONF:-/etc/llm-stack/llm-stack.env}
+set -a
+# shellcheck disable=SC1090
+. "$CONF"
+set +a
+
+docker rm -f open-webui >/dev/null 2>&1 || true
+docker run -d --name open-webui --restart always \
+  --network "$DOCKER_NETWORK" --ip "$WEBUI_CONTAINER_IP" \
+  -p "127.0.0.1:${OPENWEBUI_PORT}:8080" \
+  -v open-webui:/app/backend/data \
+  --add-host "host.docker.internal:${DOCKER_GATEWAY}" \
+  -e WEBUI_NAME="$WEBUI_NAME" \
+  -e WEBUI_URL="https://${DOMAIN}" \
+  -e WEBUI_SECRET_KEY="$WEBUI_SECRET_KEY" \
+  -e OLLAMA_BASE_URL="http://host.docker.internal:${PROXY_PORT}" \
+  -e ENABLE_OPENAI_API=false \
+  -e ENABLE_SIGNUP=true \
+  -e DEFAULT_USER_ROLE=pending \
+  -e RAG_EMBEDDING_ENGINE=ollama \
+  -e RAG_EMBEDDING_MODEL="$EMBED_MODEL" \
+  -e RAG_OLLAMA_BASE_URL="http://host.docker.internal:${PROXY_PORT}" \
+  "$OPENWEBUI_IMAGE" >/dev/null
+echo "open-webui gestartet ($OPENWEBUI_IMAGE)"

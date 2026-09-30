@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Sichert die Open-WebUI-Datenbank, lädt das Image neu und startet den Container neu.
+set -Eeuo pipefail
+CONF=${LLM_STACK_CONF:-/etc/llm-stack/llm-stack.env}
+set -a
+# shellcheck disable=SC1090
+. "$CONF"
+set +a
+[ "$(id -u)" -eq 0 ] || { echo "Bitte mit sudo ausführen." >&2; exit 1; }
+
+backup_dir=/var/backups/llm-stack
+install -d -m 700 "$backup_dir"
+stamp=$(date +%Y%m%d-%H%M%S)
+docker cp open-webui:/app/backend/data/webui.db "$backup_dir/webui-$stamp.db"
+echo "Sicherung: $backup_dir/webui-$stamp.db"
+
+docker pull "$OPENWEBUI_IMAGE"
+/usr/local/sbin/llm-webui-run
+for _ in $(seq 90); do
+  curl -fsS "http://127.0.0.1:${OPENWEBUI_PORT}/health" >/dev/null 2>&1 && { echo "Open WebUI läuft."; exit 0; }
+  sleep 2
+done
+echo "Open WebUI startet nicht – Sicherung liegt in $backup_dir (docker logs open-webui)." >&2
+exit 1
